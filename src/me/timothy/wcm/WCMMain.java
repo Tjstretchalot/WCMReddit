@@ -1,6 +1,10 @@
 package me.timothy.wcm;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+
+import org.json.simple.parser.ParseException;
 
 import me.timothy.jreddit.requests.Utils;
 import me.timothy.wcm.WCMConfig.SiteConfig;
@@ -12,7 +16,7 @@ import me.timothy.wcm.WCMConfig.SiteConfig;
  */
 public class WCMMain {
 //	private static Logger logger = LogManager.getLogger();
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException, ParseException {
 		WCMConfig config = new WCMConfig(new File("config"));
 		config.reload();
 		

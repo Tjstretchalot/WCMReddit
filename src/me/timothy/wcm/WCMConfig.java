@@ -221,6 +221,9 @@ public class WCMConfig {
 	private void loadSiteConfig(File file) {
 		try(BufferedReader br = new BufferedReader(new FileReader(file))) {
 			cachedSiteConfig = gson.fromJson(br, SiteConfig.class);
+			if(!cachedSiteConfig.baseUrl.endsWith("/")) {
+				cachedSiteConfig.baseUrl += "/";
+			}
 		}catch(FileNotFoundException ex) {
 			logger.error("Missing file " + file.getAbsolutePath() + ", which should contain site configuration!");
 			throw new RuntimeException(ex);
