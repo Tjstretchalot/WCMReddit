@@ -1,11 +1,14 @@
 package me.timothy.wcm;
 
-import javax.mail.Message;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import me.timothy.wcm.EmailFetcher.CachedEmail;
 import me.timothy.wcm.WCMConfig.EmailConfig;
 
 /**
@@ -46,11 +49,13 @@ public class WCMRedditBot implements Runnable {
 	 */
 	private void scanEmail(EmailConfig eConfig) {
 		EmailFetcher eFetcher = new EmailFetcher(eConfig.username + "@gmail.com", eConfig.password);
-		Message[] messages = eFetcher.fetchUnreadMessages();
+		List<CachedEmail> messages = eFetcher.fetchUnreadMessages();
 		
-		for(Message message : messages) {
+		System.out.println(eConfig + " has " + messages.size() + " unseen messages");
+		for(CachedEmail message : messages) {
 			handleMessage(eConfig, message);
 		}
+		System.out.println("Done scanning email");
 	}
 	
 	/**
@@ -58,8 +63,9 @@ public class WCMRedditBot implements Runnable {
 	 * @param eConfig the configuration for this email
 	 * @param message the message
 	 */
-	private void handleMessage(EmailConfig eConfig, Message message) {
-		
+	private void handleMessage(EmailConfig eConfig, CachedEmail message) {
+		System.out.println(eConfig + " recieved message from " + Arrays.deepToString(message.from) + ": ");
+		System.out.println(message.content);
 	}
 
 	private void sleepFor(long ms) {
