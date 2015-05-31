@@ -1,15 +1,14 @@
 package me.timothy.wcm;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+
+import me.timothy.wcm.EmailFetcher.CachedEmail;
+import me.timothy.wcm.WCMConfig.EmailConfig;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import me.timothy.wcm.EmailFetcher.CachedEmail;
-import me.timothy.wcm.WCMConfig.EmailConfig;
 
 /**
  * The brain of the bot - does the actual high-level processing.
