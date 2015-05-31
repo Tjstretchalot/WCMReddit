@@ -46,6 +46,12 @@ public class WCMConfig {
 			this.password = password;
 			this.subreddit = subreddit;
 		}
+
+		@Override
+		public String toString() {
+			return "EmailConfig [username=" + username + ", password="
+					+ password + ", subreddit=" + subreddit + "]";
+		}
 	}
 	
 	private static Logger logger = LogManager.getLogger();
