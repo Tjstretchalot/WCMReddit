@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -23,7 +24,7 @@ public class WCMConfig {
 	 * 
 	 * @author Timothy
 	 */
-	public class EmailConfig {
+	public static class EmailConfig {
 		public String username; // for the email
 		public String password;
 		public String subreddit;
@@ -52,7 +53,7 @@ public class WCMConfig {
 	 * 
 	 * @author Timothy
 	 */
-	public class UserConfig {
+	public static class UserConfig {
 		/**
 		 * The email of the user. This is the email that when sends an email to one of 
 		 * the subreddit emails, the bot knows to post from the particular reddit account.
@@ -84,12 +85,38 @@ public class WCMConfig {
 		}
 	}
 	
+	/**
+	 * Logon information for the actual website
+	 * 
+	 * @author Timothy
+	 *
+	 */
+	public static class SiteConfig {
+		public String username;
+		public String password;
+		public String baseUrl;
+		
+		public SiteConfig(String username, String password, String baseUrl) {
+			super();
+			this.username = username;
+			this.password = password;
+			this.baseUrl = baseUrl;
+		}
+
+		@Override
+		public String toString() {
+			return "SiteConfig [username=" + username + ", password="
+					+ password + ", baseUrl=" + baseUrl + "]";
+		}
+	}
+	
 	private static Logger logger = LogManager.getLogger();
 	private static Gson gson = new GsonBuilder().setFieldNamingStrategy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
 	
 	private File directory;
 	private EmailConfig[] cachedEmailConfigs;
 	private UserConfig[] cachedUserConfigs;
+	private SiteConfig cachedSiteConfig;
 	
 	/**
 	 * Prepares the config to load in the specified directory
@@ -105,6 +132,7 @@ public class WCMConfig {
 	public void reload() {
 		loadEmailConfig(new File(directory, "emailconfig.json"));
 		loadUserConfig(new File(directory, "userconfig.json"));
+		loadSiteConfig(new File(directory, "siteconfig.json"));
 	}
 	
 	public EmailConfig[] getEmailConfigs() {
@@ -113,6 +141,10 @@ public class WCMConfig {
 	
 	public UserConfig[] getUserConfigs() {
 		return cachedUserConfigs;
+	}
+	
+	public SiteConfig getSiteConfig() {
+		return cachedSiteConfig;
 	}
 	
 	/**
@@ -165,6 +197,32 @@ public class WCMConfig {
 			cachedUserConfigs = gson.fromJson(br, UserConfig[].class);
 		}catch(FileNotFoundException ex) {
 			logger.error("Missing file " + file.getAbsolutePath() + ", which should contain user configuration!");
+			throw new RuntimeException(ex);
+		}catch(IOException ex) {
+			logger.throwing(ex);
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	/**
+	 * Loads the site configuration from the file, assuming a json format
+	 * 
+	 * 
+	 * ---
+	 * 
+	 * Example file is
+	 * {
+	 *    "username": "johndoe",
+	 *    "password": "hunter2",
+	 *    "base_url": "http://reddit.com"
+	 * }
+	 * @param file
+	 */
+	private void loadSiteConfig(File file) {
+		try(BufferedReader br = new BufferedReader(new FileReader(file))) {
+			cachedSiteConfig = gson.fromJson(br, SiteConfig.class);
+		}catch(FileNotFoundException ex) {
+			logger.error("Missing file " + file.getAbsolutePath() + ", which should contain site configuration!");
 			throw new RuntimeException(ex);
 		}catch(IOException ex) {
 			logger.throwing(ex);

@@ -2,6 +2,9 @@ package me.timothy.wcm;
 
 import java.io.File;
 
+import me.timothy.jreddit.requests.Utils;
+import me.timothy.wcm.WCMConfig.SiteConfig;
+
 /**
  * Entry class to the program. Loads configuration and runs the WCMRedditBot.
  * 
@@ -12,6 +15,11 @@ public class WCMMain {
 	public static void main(String[] args) {
 		WCMConfig config = new WCMConfig(new File("config"));
 		config.reload();
+		
+		SiteConfig siteConfig = config.getSiteConfig();
+		Utils.BASE = siteConfig.baseUrl;
+		Utils.SITE_WIDE_USERNAME = siteConfig.username;
+		Utils.SITE_WIDE_PASSWORD = siteConfig.password;
 		
 		WCMRedditBot rBot = new WCMRedditBot(config);
 		

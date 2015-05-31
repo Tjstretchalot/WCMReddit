@@ -1,10 +1,13 @@
 package me.timothy.wcm;
 
-import java.util.Arrays;
 import java.util.List;
 
+import me.timothy.bots.Retryable;
+import me.timothy.jreddit.RedditUtils;
+import me.timothy.jreddit.User;
 import me.timothy.wcm.EmailFetcher.CachedEmail;
 import me.timothy.wcm.WCMConfig.EmailConfig;
+import me.timothy.wcm.WCMConfig.UserConfig;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -50,11 +53,9 @@ public class WCMRedditBot implements Runnable {
 		EmailFetcher eFetcher = new EmailFetcher(eConfig.username + "@gmail.com", eConfig.password);
 		List<CachedEmail> messages = eFetcher.fetchUnreadMessages();
 		
-		System.out.println(eConfig + " has " + messages.size() + " unseen messages");
 		for(CachedEmail message : messages) {
 			handleMessage(eConfig, message);
 		}
-		System.out.println("Done scanning email");
 	}
 	
 	/**
@@ -63,8 +64,43 @@ public class WCMRedditBot implements Runnable {
 	 * @param message the message
 	 */
 	private void handleMessage(EmailConfig eConfig, CachedEmail message) {
-		System.out.println(eConfig + " recieved message from " + Arrays.deepToString(message.from) + ": ");
-		System.out.println(message.content);
+		String from = WCMUtils.getEmailFromAddress(message.from[0]);
+		logger.debug(eConfig + " recieved message from " + from + ": ");
+		logger.debug(message.content);
+		
+		UserConfig[] userConfigs = config.getUserConfigs();
+		
+		for(UserConfig uConfig : userConfigs) {
+			logger.debug("comparing " + uConfig.email);
+			if(uConfig.email.equals(from)) {
+				handleMessage(eConfig, uConfig, message);
+				return;
+			}
+		}
+		
+		logger.warn("Unknown sender: " + message.from[0].toString());
+	}
+
+	private void handleMessage(EmailConfig eConfig, UserConfig uConfig,
+			CachedEmail message) {
+		final User redditUser = new User(uConfig.redditUsername, uConfig.redditPassword);
+		logger.debug("Attempting to login as " + uConfig.redditUsername + " with password " + uConfig.redditPassword);
+		Boolean login = new Retryable<Boolean>("Login " + uConfig.redditUsername) {
+
+			@Override
+			protected Boolean runImpl() throws Exception {
+				RedditUtils.loginUser(redditUser);
+				return true;
+			}
+			
+		}.run();
+		
+		if(!login) {
+			logger.error("Failed to login as " + uConfig.redditUsername);
+			System.exit(1);
+		}
+		
+		logger.debug("Logged in as " + redditUser.getUsername());
 	}
 
 	private void sleepFor(long ms) {

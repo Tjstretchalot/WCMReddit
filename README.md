@@ -8,3 +8,4 @@ Dependencies:
 2. Gson 2.3
 3. JReddit 3
 4. JavaMail 1.4.7
+5. Json-Simple 1.1.1 (for JReddit)
