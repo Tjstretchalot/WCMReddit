@@ -2,8 +2,6 @@ package me.timothy.wcm;
 
 import java.io.File;
 
-import me.timothy.wcm.WCMConfig.EmailConfig;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -18,9 +16,8 @@ public class WCMMain {
 		WCMConfig config = new WCMConfig(new File("config"));
 		config.reload();
 		
-		EmailConfig[] emailConfig = config.getEmailConfigs();
-		for(EmailConfig eConfig : emailConfig) {
-			logger.debug(eConfig);
-		}
+		WCMRedditBot rBot = new WCMRedditBot(config);
+		
+		rBot.run();
 	}
 }
