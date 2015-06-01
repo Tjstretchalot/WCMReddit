@@ -1,17 +1,20 @@
 package me.timothy.wcm;
 
-import java.util.List;
+import java.io.IOException;
+
+import javax.mail.Message;
+import javax.mail.MessagingException;
 
 import me.timothy.bots.Retryable;
 import me.timothy.jreddit.RedditUtils;
 import me.timothy.jreddit.User;
-import me.timothy.wcm.EmailFetcher.CachedEmail;
 import me.timothy.wcm.WCMConfig.EmailConfig;
 import me.timothy.wcm.WCMConfig.UserConfig;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.simple.parser.ParseException;
 
 /**
  * The brain of the bot - does the actual high-level processing.
@@ -51,22 +54,29 @@ public class WCMRedditBot implements Runnable {
 	 */
 	private void scanEmail(EmailConfig eConfig) {
 		EmailFetcher eFetcher = new EmailFetcher(eConfig.username + "@gmail.com", eConfig.password);
-		List<CachedEmail> messages = eFetcher.fetchUnreadMessages();
+		Message[] messages = eFetcher.fetchUnreadMessages();
 		
-		for(CachedEmail message : messages) {
-			handleMessage(eConfig, message);
+		for(Message message : messages) {
+			try {
+				handleMessage(eConfig, message);
+			} catch (MessagingException | IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
+		
+		eFetcher.closeInbox();
 	}
 	
 	/**
 	 * Handles a particular message
 	 * @param eConfig the configuration for this email
 	 * @param message the message
+	 * @throws MessagingException 
+	 * @throws IOException 
 	 */
-	private void handleMessage(EmailConfig eConfig, CachedEmail message) {
-		String from = WCMUtils.getEmailFromAddress(message.from[0]);
-		logger.debug(eConfig + " recieved message from " + from + ": ");
-		logger.debug(message.content);
+	private void handleMessage(EmailConfig eConfig, Message message) throws MessagingException, IOException {
+		String from = WCMUtils.getEmailFromAddress(message.getFrom()[0]);
+		logger.debug(eConfig + " recieved message from " + from);
 		
 		UserConfig[] userConfigs = config.getUserConfigs();
 		
@@ -78,11 +88,11 @@ public class WCMRedditBot implements Runnable {
 			}
 		}
 		
-		logger.warn("Unknown sender: " + message.from[0].toString());
+		logger.warn("Unknown sender: " + from);
 	}
 
 	private void handleMessage(EmailConfig eConfig, UserConfig uConfig,
-			CachedEmail message) {
+			Message message) throws MessagingException, IOException {
 		final User redditUser = new User(uConfig.redditUsername, uConfig.redditPassword);
 		logger.debug("Attempting to login as " + uConfig.redditUsername + " with password " + uConfig.redditPassword);
 		Boolean login = new Retryable<Boolean>("Login " + uConfig.redditUsername) {
@@ -101,6 +111,20 @@ public class WCMRedditBot implements Runnable {
 		}
 		
 		logger.debug("Logged in as " + redditUser.getUsername());
+		
+		String messageToSend = WCMUtils.getMainMessage(message);
+		logger.debug(messageToSend);
+		try {
+			String subject = message.getSubject();
+			if(subject.startsWith("FW:"))
+				subject = subject.substring(3);
+			subject = subject.trim();
+			String messageTrunc = messageToSend.length() <= 10 ? messageToSend : messageToSend.substring(0, 10) + "...";
+			logger.debug("Submitting " + messageTrunc + " as " + redditUser.getUsername() + " to " + eConfig.subreddit + " with subject " + subject);
+			//RedditUtils.submitSelf(redditUser, eConfig.subreddit, subject, messageToSend);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private void sleepFor(long ms) {

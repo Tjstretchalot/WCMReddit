@@ -2,12 +2,11 @@ package me.timothy.wcm;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-
-import org.json.simple.parser.ParseException;
 
 import me.timothy.jreddit.requests.Utils;
 import me.timothy.wcm.WCMConfig.SiteConfig;
+
+import org.json.simple.parser.ParseException;
 
 /**
  * Entry class to the program. Loads configuration and runs the WCMRedditBot.
