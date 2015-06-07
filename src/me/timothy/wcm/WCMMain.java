@@ -26,6 +26,9 @@ public class WCMMain {
 		
 		WCMRedditBot rBot = new WCMRedditBot(config);
 		
-		rBot.run();
+		while(true) {
+			rBot.run();
+			rBot.sleepFor(30000);
+		}
 	}
 }

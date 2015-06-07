@@ -14,7 +14,6 @@ import me.timothy.wcm.WCMConfig.UserConfig;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.simple.parser.ParseException;
 
 /**
  * The brain of the bot - does the actual high-level processing.
@@ -53,7 +52,9 @@ public class WCMRedditBot implements Runnable {
 	 * @param eConfig the emails config options
 	 */
 	private void scanEmail(EmailConfig eConfig) {
-		EmailFetcher eFetcher = new EmailFetcher(eConfig.username + "@gmail.com", eConfig.password);
+		String email = eConfig.username + "@gmail.com";
+		EmailFetcher eFetcher = new EmailFetcher(email, eConfig.password);
+		logger.printf(Level.DEBUG, "Scanning %s for /r/%s", email, eConfig.subreddit);
 		Message[] messages = eFetcher.fetchUnreadMessages();
 		
 		for(Message message : messages) {
@@ -81,7 +82,6 @@ public class WCMRedditBot implements Runnable {
 		UserConfig[] userConfigs = config.getUserConfigs();
 		
 		for(UserConfig uConfig : userConfigs) {
-			logger.debug("comparing " + uConfig.email);
 			if(uConfig.email.equals(from)) {
 				handleMessage(eConfig, uConfig, message);
 				return;
@@ -121,13 +121,18 @@ public class WCMRedditBot implements Runnable {
 			subject = subject.trim();
 			String messageTrunc = messageToSend.length() <= 10 ? messageToSend : messageToSend.substring(0, 10) + "...";
 			logger.debug("Submitting " + messageTrunc + " as " + redditUser.getUsername() + " to " + eConfig.subreddit + " with subject " + subject);
-			//RedditUtils.submitSelf(redditUser, eConfig.subreddit, subject, messageToSend);
+			RedditUtils.submitSelf(redditUser, eConfig.subreddit, subject, messageToSend);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private void sleepFor(long ms) {
+	/**
+	 * Sleeps for the specified period of time, wrapping interrupted
+	 * exceptions in runtime exceptions 
+	 * @param ms time in milliseconds
+	 */
+	void sleepFor(long ms) {
 		try {
 			logger.printf(Level.TRACE, "Sleeping for %d ms", ms);
 			Thread.sleep(ms);
