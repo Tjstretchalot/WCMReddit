@@ -28,7 +28,7 @@ public class WCMMain {
 		
 		while(true) {
 			rBot.run();
-			rBot.sleepFor(30000);
+			rBot.sleepFor(300000);
 		}
 	}
 }
