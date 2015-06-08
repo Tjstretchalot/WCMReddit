@@ -112,7 +112,7 @@ public class WCMRedditBot implements Runnable {
 		
 		logger.debug("Logged in as " + redditUser.getUsername());
 		
-		String messageToSend = WCMUtils.getMainMessage(message);
+		final String messageToSend = WCMUtils.getMainMessage(message);
 		logger.debug(messageToSend);
 		try {
 			String subject = message.getSubject();
@@ -121,7 +121,15 @@ public class WCMRedditBot implements Runnable {
 			subject = subject.trim();
 			String messageTrunc = messageToSend.length() <= 10 ? messageToSend : messageToSend.substring(0, 10) + "...";
 			logger.debug("Submitting " + messageTrunc + " as " + redditUser.getUsername() + " to " + eConfig.subreddit + " with subject " + subject);
-			RedditUtils.submitSelf(redditUser, eConfig.subreddit, subject, messageToSend);
+			final String subjectFinal = subject;
+			new Retryable<Boolean>("Submit post") {
+
+				@Override
+				protected Boolean runImpl() throws Exception {
+					RedditUtils.submitSelf(redditUser, eConfig.subreddit, subjectFinal, messageToSend);
+					return true;
+				}
+			}.run();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
