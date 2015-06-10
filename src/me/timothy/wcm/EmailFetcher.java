@@ -10,6 +10,8 @@ import javax.mail.Session;
 import javax.mail.Store;
 import javax.mail.search.FlagTerm;
 
+import me.timothy.bots.Retryable;
+
 /**
  * The email fetcher logs into a GMail account and fetches unread messages.
  * 
@@ -39,20 +41,23 @@ public class EmailFetcher {
 	 */
 	public Message[] fetchUnreadMessages() {
 		Session session = Session.getDefaultInstance(new Properties());
-		try {
-			Store store = session.getStore("imaps");
-			store.connect("imap.googlemail.com", 993, email, password);
-			
-			inbox = store.getFolder("INBOX");
-			inbox.open(Folder.READ_WRITE);
-			
-			Message[] results = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
-			inbox.setFlags(results, new Flags(Flags.Flag.SEEN), true);
-			
-			return results;
-		} catch (MessagingException e) {
-			throw new RuntimeException(e);
-		}
+		return new Retryable<Message[]>("Login via IMAP to googlemail") {
+
+			@Override
+			protected Message[] runImpl() throws Exception {
+
+				Store store = session.getStore("imaps");
+				store.connect("imap.googlemail.com", 993, email, password);
+				
+				inbox = store.getFolder("INBOX");
+				inbox.open(Folder.READ_WRITE);
+				
+				Message[] results = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+				inbox.setFlags(results, new Flags(Flags.Flag.SEEN), true);
+				
+				return results;
+			}
+		}.run();
 	}
 	
 	public void closeInbox() {
