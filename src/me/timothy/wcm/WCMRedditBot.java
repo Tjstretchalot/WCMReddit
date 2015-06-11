@@ -94,7 +94,7 @@ public class WCMRedditBot implements Runnable {
 	private void handleMessage(EmailConfig eConfig, UserConfig uConfig,
 			Message message) throws MessagingException, IOException {
 		final User redditUser = new User(uConfig.redditUsername, uConfig.redditPassword);
-		logger.debug("Attempting to login as " + uConfig.redditUsername + " with password " + uConfig.redditPassword);
+		logger.debug("Attempting to login as " + uConfig.redditUsername);
 		Boolean login = new Retryable<Boolean>("Login " + uConfig.redditUsername) {
 
 			@Override
@@ -113,14 +113,12 @@ public class WCMRedditBot implements Runnable {
 		logger.debug("Logged in as " + redditUser.getUsername());
 		
 		final String messageToSend = WCMUtils.getMainMessage(message);
-		logger.debug(messageToSend);
 		try {
 			String subject = message.getSubject();
 			if(subject.startsWith("FW:"))
 				subject = subject.substring(3);
 			subject = subject.trim();
-			String messageTrunc = messageToSend.length() <= 10 ? messageToSend : messageToSend.substring(0, 10) + "...";
-			logger.debug("Submitting " + messageTrunc + " as " + redditUser.getUsername() + " to " + eConfig.subreddit + " with subject " + subject);
+			logger.debug("Submitting " + subject + " as " + redditUser.getUsername() + " to " + eConfig.subreddit);
 			final String subjectFinal = subject;
 			new Retryable<Boolean>("Submit post") {
 

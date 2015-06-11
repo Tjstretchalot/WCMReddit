@@ -1,10 +1,6 @@
 package me.timothy.wcm;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,12 +9,6 @@ import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
 import javax.mail.Part;
-import javax.xml.transform.Source;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,13 +43,9 @@ public class WCMUtils {
 	 */
 	public static String getMainMessage(Message message) throws MessagingException, IOException {
 		String text = getText(message);
-		logger.debug(text);
-		System.exit(0);
-		text = text.replaceAll("[^\\x00-\\x7F]", ""); // no ascii
-		text = stripFooter(text);
 		text = cleanupFormatting(text);
-		text = fixNewlines(text);
-		
+		text = stripFooter(text);
+//		
 		return text;
 	}
 	
@@ -76,7 +62,7 @@ public class WCMUtils {
 		
 		boolean first = true;
 		for(String line : lines) {
-			if(line.contains("WCM Investment Management | 281 Brooks Street, Laguna Beach, CA 92651"))
+			if(line.contains("**WCM Investment Management** | 281 Brooks Street"))
 				return result.toString();
 			
 			if(first)
@@ -90,72 +76,105 @@ public class WCMUtils {
 	}
 	
 	/**
-	 * Removes extra spacing the beginning of lines.
+	 * Fixes some oddities with reddits version of markup
 	 * 
 	 * @param text the text
 	 * @return cleaned up formatting
 	 */
 	private static String cleanupFormatting(String text) {
-		Scanner scanner = new Scanner(text);
-		StringBuilder result = new StringBuilder();
-
-		boolean first = true;
-		while(scanner.hasNextLine()) {
-			String line = scanner.nextLine();
-			int initialSpacing = 0;
-			for(; initialSpacing < line.length(); initialSpacing++) {
-				if(!Character.isWhitespace(line.charAt(initialSpacing))) {
-					break;
-				}
-			}
-			
-			if(initialSpacing >= 4) {
-				line = "  " + line.substring(initialSpacing);
-			}
-
-			if(first)
-				first = false;
-			else
-				result.append("\n");
-			result.append(line);
-		}
-		scanner.close();
-		return result.toString();
+		text = fixExtraneousSpacesInBody(text, "_");
+		text = fixExtraneousSpacesInBody(text, "**");
+		return text;
 	}
 	
 	/**
-	 * Finds single newlines followed by text and switches them to 2 newlines
-	 * in order to ensure reddit displays them as 2 newlines.
+	 * Fixes situations where you have marker, followed by a space, followed
+	 * by text, followed by space, followed by marker, by stripping those
+	 * extra spaces. May only do one space.
 	 * 
-	 * @param text the text to fix newlines on
-	 * @return the fixed newlines
+	 * Example, if marker is _: blah _  blah blah blah_ blah blah _   blah blah   _ _blah _
+	 * becomes blah _blah blah blah_ blah blah _blah blah_ _blah_.
+	 * 
+	 * It is very difficult to do this using regular expressions, because it often confuses which
+	 * are groups, and which are in between groups.
+	 * 
+	 * @param body the body
+	 * @param marker the marker
+	 * @return fixed
 	 */
-	private static String fixNewlines(String text) {
+	private static String fixExtraneousSpacesInBody(String body, String marker) {
+		if(marker.length() == 0)
+			throw new IllegalArgumentException("Empty marker");
 		StringBuilder result = new StringBuilder();
 		
-		boolean first = true;
-		boolean lastWasEmpty = false;
-		Scanner scanner = new Scanner(text);
-		while(scanner.hasNextLine()) {
-			String line = scanner.nextLine();
-			
-			if(first)
-				first = false;
+		// Index in marker is the index to check in the next iteration, if it 
+		// doesn't match, reset to 0, otherwise increment until index in marker
+		// is greater than marker length.
+		int indexInMarker = 0;
+
+		// Are we inside a block?
+		boolean open = false;
+		
+		// The current block message
+		StringBuilder block = null;
+		/*
+		 * Goal:
+		 * 
+		 * Go through the body iteratively until we reach a marker. Then, parse until
+		 * the end of the marker, trim this segment (that was within this marker), add it,
+		 * add the marker, continue.
+		 */
+		for(int indexInBody = 0; indexInBody < body.length(); indexInBody++) {
+			char bodyChar = body.charAt(indexInBody);
+			char markChar = marker.charAt(indexInMarker);
+
+			if(!open)
+				result.append(bodyChar);
 			else
-				result.append("\n");
+				block.append(bodyChar);
 			
-			boolean empty = line.trim().isEmpty();
-			if(lastWasEmpty || empty)
-				result.append(line);
-			else
-				result.append("\n").append(line);
-			
-			lastWasEmpty = empty;
+			if(bodyChar == markChar) {
+				indexInMarker++;
+				
+				if(indexInMarker >= marker.length()) {
+					// We found a marker!
+					if(!open) {
+						open = true;
+						block = new StringBuilder();
+					}else {
+						String blockMsg = block.substring(0, block.length() - marker.length()).toString().trim();
+						result.append(blockMsg).append(marker);
+						open = false;
+						block = null;
+					}
+					indexInMarker = 0;
+				}
+			}
 		}
-		scanner.close();
+		if(open) {
+			logger.error("Still open at end of body " + body + " for marker " + marker);
+		}
 		return result.toString();
+		
 	}
 	
+	public static void main(String[] args) {
+		String[] tests = {
+			"test 1, _normal_ situation",
+			"test 2, _ two spaces _ and stuff",
+			"test 3, _   large after_ space",
+			"test 4, _large before   _ space",
+			"test 5, ** all the** _ things_ that **  could be ** _ the case _",
+			"test 6, _ all the_ ** things** that _  could be _ ** the case **"
+		};
+		
+		for(String test : tests) {
+			System.out.println("--------BEGIN TEST--------");
+			System.out.println(test);
+			test = cleanupFormatting(test);
+			System.out.println(test);
+		}
+	}
 	// http://www.oracle.com/technetwork/java/javamail/faq/index.html#mainbody
 	// changed to prefer plain text over html text
     /**
@@ -178,7 +197,7 @@ public class WCMUtils {
                 } else if (bp.isMimeType("text/html")) {
                 	String s = getText(bp);
                     if (s != null)
-                    	return htmlToMarkdown(fixUglyHTML(s));
+                    	return HTMLToMarkup.convertToMarkup(fixUglyHTML(s));
                     continue;
                 } else {
                     return getText(bp);
@@ -225,32 +244,6 @@ public class WCMUtils {
 		for(String[] regexAndRepl : REGEX_REPLACE_HTML) {
 			str = str.replaceAll(regexAndRepl[0], regexAndRepl[1]);
 		}
-		return "<html>" + str + "</html>";
-	}
-	
-	/**
-	 * Converts html to markdown
-	 * @param theHTML the html
-	 * @return the markdown
-	 */
-	private static String htmlToMarkdown(String theHTML) {
-		System.err.print(theHTML);
-		File xsltFile = new File("markdown.xsl");
-
-		Source xmlSource = new StreamSource(new StringReader(theHTML));
-		Source xsltSource = new StreamSource(xsltFile);
-
-		TransformerFactory transFact =
-				TransformerFactory.newInstance();
-		Transformer trans;
-		try {
-			trans = transFact.newTransformer(xsltSource);
-
-			StringWriter result = new StringWriter();
-			trans.transform(xmlSource, new StreamResult(result));
-			return result.toString();
-		} catch (TransformerException e) {
-			throw new RuntimeException(e);
-		}
+		return str;
 	}
 }
